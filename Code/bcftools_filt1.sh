@@ -27,12 +27,12 @@ bcftools view -m2 -M2 -v snps --threads 24 | \
 bcftools filter -e 'F_MISSING > 0.1' --threads 24 | \
 bcftools +prune --window 200bp --nsites-per-win 1 --nsites-per-win-mode "rand" -Oz -o ${file}_filt1.vcf.gz
 
-vcftools --gzvcf ${file}_filt1.vcf.gz --depth --out $file
-vcftools --gzvcf ${file}_filt1.vcf.gz --site-mean-depth --out $file
-vcftools --gzvcf ${file}_filt1.vcf.gz --het --out $file
-vcftools --gzvcf $file.vcf.gz --relatedness2 --out $file
-vcftools --gzvcf ${file}_filt1.vcf.gz --missing-indv --out $file
+vcftools --gzvcf ${file}_filt1.vcf.gz --depth --out $file_filt1
+vcftools --gzvcf ${file}_filt1.vcf.gz --site-mean-depth --out $file_filt1
+vcftools --gzvcf ${file}_filt1.vcf.gz --het --out $file_filt1
+#vcftools --gzvcf ${file}_filt1.vcf.gz --relatedness2 --out $file_filt1
+vcftools --gzvcf ${file}_filt1.vcf.gz --missing-indv --out $file_filt1
 
-echo "finished ${file}"
+echo "finished ${file_filt1}"
 
 
