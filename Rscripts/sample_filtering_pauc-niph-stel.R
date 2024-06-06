@@ -106,7 +106,7 @@ legend("topright",
        pch = 19,
        col = factor(levels(factor(df2$Species2))))
 
-p = ggplot(df2, aes(x = Species2, y = Fis)) +
+p = ggplot(df2, aes(x = Species2, y = fmiss)) +
   geom_boxplot() +
   #theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1))+
   coord_flip()
@@ -231,35 +231,115 @@ colnames(pca_scores2)[1:2] <- c("Species", "Geocluster")
 
 #pca_scores2[1:10,1:10]
 
-pdf(paste0(figstub, file, "south_PCA.pdf"))
+pca_scores2_ <- pca_scores2 %>%
+  filter(Geocluster == "South")
 
-screeplot(pca_scaled, 
-          ylab  = "Relative importance",
-          main = "SNP Scree Plot")
-
+pdf(paste0(figstub,file,"south_PCA.pdf"))
 dimx <- 1
 dimy <- 2
-ggpubr::ggscatter(data = pca_scores2,
+
+ggpubr::ggscatter(data = pca_scores2_,
                   y = paste0("PC", dimy),
                   x = paste0("PC", dimx),
                   color = "Species",
-                  shape = "Geocluster",
+                  #shape = "Geocluster",
                   alpha = 0.5,
                   xlab = paste0("PC", dimx, " (", round(prop.var[dimx]*100, 2), "% variation)"),
                   ylab = paste0("PC", dimy, " (", round(prop.var[dimy]*100, 2), "% variation)"))
 
 dimx <- 3
 dimy <- 4
-ggpubr::ggscatter(data = pca_scores2,
+ggpubr::ggscatter(data = pca_scores2_,
                   y = paste0("PC", dimy),
                   x = paste0("PC", dimx),
                   color = "Species",
-                  shape = "Geocluster",
+                  #shape = "Geocluster",
                   alpha = 0.5,
                   xlab = paste0("PC", dimx, " (", round(prop.var[dimx]*100, 2), "% variation)"),
                   ylab = paste0("PC", dimy, " (", round(prop.var[dimy]*100, 2), "% variation)"))
 
+dimx <- 5
+dimy <- 6
+ggpubr::ggscatter(data = pca_scores2,
+                  y = paste0("PC", dimy),
+                  x = paste0("PC", dimx),
+                  color = "Species",
+                  #shape = "Geocluster",
+                  alpha = 0.5,
+                  xlab = paste0("PC", dimx, " (", round(prop.var[dimx]*100, 2), "% variation)"),
+                  ylab = paste0("PC", dimy, " (", round(prop.var[dimy]*100, 2), "% variation)"))
+
+screeplot(pca_scaled, 
+          ylab  = "Relative importance",
+          main = "SNP Scree Plot")
 dev.off()
+
+### Saving sample list for FST
+
+keep_pauc_niph1 <- pca_scores2 %>%
+  filter(Species %in% c("niph", "pauc"),
+         Geocluster == "South",
+         !gdf.names_uniq %in% c("MON0794_S155", "MON0795_S156", "MON0788_S149"))
+
+table(keep_pauc_niph1$Species)
+
+write(keep_pauc_niph1$gdf.names_uniq, paste0(path,"niph33_pauc233.keeplist"))
+
+niph <- keep_pauc_niph1 %>%
+  filter(Species == "niph")
+write(niph$gdf.names_uniq, paste0(path,"niph33.popfile"))
+
+pauc <- keep_pauc_niph1 %>%
+  filter(Species == "pauc")
+write(pauc$gdf.names_uniq, paste0(path,"pauc233.popfile"))
+
+
+### ALTERNATE PCA APPROACH DEALING WITH MISSINGD DATA BETTER
+
+library(vcfR)
+if (!require("BiocManager", quietly = TRUE))
+  install.packages("BiocManager")
+
+BiocManager::install("pcaMethods") # this handles missing data in PCA, unlike prcomp
+## TO DO. Compare PCA using pcaMethods that deals with NA, or prcomp after removing sites with missing data.
+
+library(pcaMethods)
+
+# extract genotype data:
+snps_num <- vcfR::extract.gt(snps,
+                             element = "GT",
+                             IDtoRowNames  = F,
+                             as.numeric = T,
+                             convertNA = F,
+                             return.alleles = F)
+
+# check what the SNP matrix looks like (should reflect GT column from VCF)
+snps_num[1:20,1:5]
+
+# Note: missing data is relfected as -1. Suspect that this is interpreted by PCA scale() as a numeric..
+# checking what happens if missing data set as NA...
+snps_num[snps_num==-1] <- NA
+
+# rotate:
+snps_num_t <- t(snps_num)
+snps_num_df <- data.frame(snps_num_t)
+
+# Identify columns with zero variance
+snps_zero_var_cols <- apply(snps_num_t, 2, function(x) var(x, na.rm = TRUE) == 0)
+
+# Optionally remove these columns
+snps_filtered <- snps_num_t[, !snps_zero_var_cols]
+
+# scale
+snps_scaled <- scale(snps_filtered, center = TRUE, scale = TRUE)
+
+
+# Perform PCA handling NAs using NIPALS algorithm
+pca <- pcaMethods::pca(snps_scaled, method = "nipals", nPcs = 8)
+plot(pca@scores[,1], pca@scores[,2], xlab = "PC1", ylab = "PC2", main = "PCA of SNP Data")
+plot(pca@scores[,3], pca@scores[,4], xlab = "PC3", ylab = "PC4", main = "PCA of SNP Data")
+
+
 # FST
 
 # # Get sample lists, then pass it through VCFtools
@@ -375,17 +455,15 @@ unique(gdf$geocluster)
 
 table(gdf$Species2, gdf$geocluster)
 
-
-spp = "pauc"
+spp = "E. pauciflora"
 geoclust = "South"
 
 gdf_ <- gdf %>%
   filter(Species2 == spp) %>%
-  filter(geocluster == geoclust) %>%
-  distinct(sample, .keep_all = T)
+  filter(geocluster == geoclust)
 
-# gdf_ <- gdf %>%
-#   filter(sample_group == 'BRY')
+gdf_ <- gdf %>%
+  filter(sample_group == 'BRY')
 
 geo_mat <- get_geodist(gdf_)
 geo_mat[1:10,1:10]
@@ -412,7 +490,6 @@ plot(my.results$Distance, my.results$Phi)
 # Now, bin the data:
 
 bin_size= 100
-pdf(paste0(figstub, file, "_spp-",spp, "_group-", geoclust, "_bin", bin_size, "_N", nrow(gdf_), ".pdf"), height = 3.5, width = 7)
 
 meanPhi = mean(my.results$Phi)
 
@@ -435,7 +512,7 @@ plot(dat_binned$MidPoint, dat_binned$Phi_mean,
      pch=20, col=rgb(0,0,0,alpha=0.9),
      xlab = "Pairwise Distance between individuals (m)",
      ylab = "Pairwise Relatedness (Phi)",
-     main = paste0("Species: ",spp, "| group: ", geoclust, " | bin size: ", bin_size, " | N. samp.: ", nrow(gdf_)),
+     main = paste0("Species: ",spp, "| group: ", geoclust, " | bin size: ", bin_size),
      ylim = c(0, 0.5),
      xaxt = "n"
      )
@@ -446,8 +523,6 @@ lines(dat_binned$MidPoint, dat_binned$Phi_95CIlower, lty = 2)
 lines(dat_binned$MidPoint, dat_binned$Phi_95CIupper, lty = 2)
 abline(h = meanPhi, col = "red")
 
-dev.off()
-
 # ## plot with raw:
 # 
 plot(my.results$Distance, my.results$Phi,
@@ -456,27 +531,11 @@ plot(my.results$Distance, my.results$Phi,
      ylab = "Pairwise Relatedness (Phi)",
      main = paste0("Species: ",spp, " | bin size: ", bin_size))
 #points(dat_binned$MidPoint, dat_binned$Phi_mean, pch=20, col=rgb(1,0,0,alpha=1))
-#lines(dat_binned$MidPoint, dat_binned$Phi_mean, lwd = 2, col = "red")
-#lines(dat_binned$MidPoint, dat_binned$Phi_95CIlower, lty = 2, col = "red")
-#lines(dat_binned$MidPoint, dat_binned$Phi_95CIupper, lty = 2, col = "red")
+lines(dat_binned$MidPoint, dat_binned$Phi_mean, lwd = 2, col = "red")
+lines(dat_binned$MidPoint, dat_binned$Phi_95CIlower, lty = 2, col = "red")
+lines(dat_binned$MidPoint, dat_binned$Phi_95CIupper, lty = 2, col = "red")
 abline(h = meanPhi)
 abline(h = 0, lty = 2)
-
-##### Updated:
-## Plot distribution of relatedness for niph and pauc sampled by Cal
-
-gdf_ <- gdf %>%
-  filter(sample_group == 'BRY') %>%
-  distinct(sample, .keep_all = T)
-
-geo_mat <- get_geodist(gdf_)
-geo_mat[1:10,1:10]
-hist(geo_mat, breaks = 100)
-
-gen_mat <- get_gendist(rel, gdf_$names_uniq)
-gen_mat[1:10,1:10]
-hist(gen_mat, breaks = 100, xlim = c(0,0.5))
-
 
 #######
 ### Dendrogram
@@ -499,10 +558,10 @@ get_gendist2 <- function(rel, samps){
 }
 
 library(vegan)
-gen_dist_mat <- (get_gendist2(rel, gdf_$names_uniq) - 0.5) * -1
+gen_dist_mat <- (get_gendist2(rel, gdf$names_uniq) - 0.5) * -1
 gen_dist_mat <- as.dist(gen_dist_mat)
+gen_dist_mat[1:10,1:10]
 clust <- hclust(gen_dist_mat, method = 'average')
-clust$labels <- paste(gdf_$Species2, gdf_$names_uniq, sep = "_")
 
 plot(clust, las = 1, 
      xlab="Sample", 

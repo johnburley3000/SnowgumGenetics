@@ -270,8 +270,14 @@ sp_list <- c("E. p. niphophila",  "E. stellulata",
              "E. blakelyi", "E. bridgesiana", "E. rubida",
              "E. viminalis", "E. dalrympleana")
 
+sp_list <- c("E. p. niphophila",  "E. pauciflora","pauc X niph")
+
 pca_scores3 <- pca_scores2 %>%
   filter(Species %in% sp_list)
+
+
+pca_scores3 <- pca_scores2 %>%
+  filter(sample_group == 'BRY')
 
 dimx <- 1
 dimy <- 2

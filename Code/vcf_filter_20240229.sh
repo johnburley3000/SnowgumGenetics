@@ -4,7 +4,7 @@
 #PBS -l jobfs=24GB
 #PBS -q normal
 #PBS -P xe2
-#PBS -l walltime=04:00:00
+#PBS -l walltime=08:00:00
 #PBS -l storage=scratch/xe2+gdata/xe2+gdata/if89
 #PBS -l wd
 

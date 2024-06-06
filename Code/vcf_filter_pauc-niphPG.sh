@@ -21,34 +21,35 @@ module load vcftools
 echo ${CHROM}
 echo ${keeplist}.keeplist
 
+newfile=${keeplist}_${CHROM}_biasnps_DP5-25_mac4_mis70 # stub of the outputs
+
 cd /scratch/xe2/jb5097/tmp/
 
 vcftools --bcf ${CHROM}.bcf \
 	--keep ${keeplist}.keeplist \
 	--remove-indels \
 	--min-alleles 2 --max-alleles 2 \
-	--max-missing 0.8 \
-	--maf 0.01 \
-	--min-meanDP 5 \
-	--max-meanDP 25 \
-	--recode --stdout | gzip -c > ${keeplist}_${CHROM}_biasnps_mis80_maf01_mDP5-25.vcf.gz
+	--minDP 5 \
+	--maxDP 25 \
+	--mac 4 \
+	--max-missing 0.7 \
+	--recode --stdout | gzip -c > ${newfile}.vcf.gz
 
 ## Now run FST in windows for a quick look at divergence:
 
-i=niph
-j=pauc
-
-vcftools --gzvcf ${keeplist}_${CHROM}_biasnps_mis80_maf01_mDP5-25.vcf.gz \
+i=niph33
+j=pauc233
+vcftools --gzvcf ${newfile}.vcf.gz \
 	--weir-fst-pop $i.popfile \
 	--weir-fst-pop $j.popfile \
 	--fst-window-size 5000 \
-	--fst-window-step 2500
-	--out ${CHROM}_biasnps_mis80_maf01_mDP5-25_fst_${i}_${j}_5kb
+	--fst-window-step 2500 \
+	--out ${newfile}_fst_${i}_${j}_5kb
 
 
-vcftools --gzvcf ${keeplist}_${CHROM}_biasnps_mis80_maf01_mDP5-25.vcf.gz \
+vcftools --gzvcf ${newfile}.vcf.gz \
         --weir-fst-pop $i.popfile \
         --weir-fst-pop $j.popfile \
-	--out ${CHROM}_biasnps_mis80_maf01_mDP5-25_fst_${i}_${j}
+	--out ${newfile}_fst_${i}_${j}
 
 
