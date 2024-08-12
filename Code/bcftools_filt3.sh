@@ -13,27 +13,26 @@
 
 module use /g/data/if89/apps/modulefiles
 module load vcftools
-module load bcftools htslib/1.16
+module load htslib/1.16
+module load bcftools
 
 cd /scratch/xe2/jb5097/tmp/
 
 in=/g/data/xe2/projects/paneuc2/final-variants/2024-02-29/mpileup~bwa~Emelliodora_sf2~melsider~filtered-default.vcf.gz
-keeplist=Adnataria_after_lowqual_individs_dropped_miss_gt_20pct.csv
+keeplist=mel_sider_list_filt3b.txt
 
 # set the output file stub:
 file=20240229_Chr10
-out=${file}_filt3
+out=${file}_filt3b
 
-bcftools view -r Chr10 $in --samples-file $keeplist --threads 48 | \
-bcftools view -m2 -M2 -v snps --threads 48 -Oz -o ${out}.vcf.gz #| \
-#bcftools filter -e 'F_MISSING > 0.2 || MAF<0.01' --threads 24 | \
-#bcftools +prune --window 200bp --nsites-per-win 1 --nsites-per-win-mode "rand" -Oz -o ${out}.vcf.gz
+bcftools view -r Chr10 $in --samples-file $keeplist -r Chr10:1000000-5000000 --threads 48 | \
+bcftools view -m2 -M2 -v snps --threads 48 | \
+bcftools filter -e 'QUAL < 20 || MAF < 0.01' --threads 24 -Oz -o ${out}.vcf.gz
 
 vcftools --gzvcf ${out}.vcf.gz --depth --out $out
 vcftools --gzvcf ${out}.vcf.gz --site-mean-depth --out $out
-#vcftools --gzvcf ${out}.vcf.gz --het --out $out
-#vcftools --gzvcf ${out}.vcf.gz --relatedness --out $out
-#vcftools --gzvcf ${out}.vcf.gz --relatedness2 --out $out
+vcftools --gzvcf ${out}.vcf.gz --het --out $out
+vcftools --gzvcf ${out}.vcf.gz --relatedness2 --out $out
 vcftools --gzvcf ${out}.vcf.gz --missing-indv --out $out
 
 echo "finished $out"
